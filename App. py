@@ -1,0 +1,60 @@
+import streamlit as st
+import pandas as pd
+from datetime import date, timedelta
+
+st.set_page_config(page_title="Ezue Legal Deadline Tracker", layout="centered")
+st.title("📅 Ezue Legal Deadline Tracker")
+st.markdown("Track litigation-critical deadlines: limitation periods, court filings, statutory windows, and more.")
+
+# Initialize session state
+if "deadlines" not in st.session_state:
+    st.session_state["deadlines"] = []
+
+# Input form
+with st.form("deadline_form"):
+    case = st.text_input("Case Name or Identifier")
+    court = st.text_input("Court / Tribunal")
+    task_type = st.selectbox("Task / Deadline Type", [
+        "Limitation Period (General)",
+        "Pre-Action Notice Window",
+        "Enter Appearance (After Writ Served)",
+        "File Statement of Defence (After Service)",
+        "File Counter Affidavit",
+        "File Reply to Defence",
+        "Notice of Appeal (Final Judgment)",
+        "Notice of Appeal (Interlocutory Decision)",
+        "File Appellant's Brief",
+        "Respondent's Brief",
+        "Reply on Points of Law",
+        "Other"
+    ])
+    reference_date = st.date_input("Start Date / Trigger Date", value=date.today())
+    task_days = st.number_input("Deadline in Days (per rule/statute)", min_value=1, value=30)
+    notes = st.text_area("Additional Notes (Optional)", height=80)
+    submitted = st.form_submit_button("Add Deadline")
+
+# Add to session state
+if submitted:
+    deadline_date = reference_date + timedelta(days=int(task_days))
+    st.session_state["deadlines"].append({
+        "Case": case,
+        "Court": court,
+        "Task": task_type,
+        "Start Date": reference_date,
+        "Deadline": deadline_date,
+        "Days Left": (deadline_date - date.today()).days,
+        "Notes": notes
+    })
+    st.success(f"✅ Deadline for '{task_type}' added successfully.")
+
+# Display deadlines
+if st.session_state["deadlines"]:
+    st.subheader("📋 Active Deadlines")
+    df = pd.DataFrame(st.session_state["deadlines"])
+    df["Status"] = df["Days Left"].apply(lambda x: "✅ Upcoming" if x >= 0 else "⚠️ Overdue")
+    df = df.sort_values("Deadline")
+    st.dataframe(df)
+
+    st.markdown("### 📤 Export Tracker")
+    csv_data = df.to_csv(index=False)
+    st.download_button("Download as CSV", csv_data, file_name="legal_deadlines.csv", mime="text/csv")
